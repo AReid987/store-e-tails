@@ -3,5 +3,8 @@
     {
       "mode": "auto"
     }
+  ],
+  "markdown.styles": [
+    "/Users/antonioreid/prodLand/store-e-tail-turbo/project_documentation/Markdown-Style.css"
   ]
 }

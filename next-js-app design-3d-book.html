@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store E. Tails - Single File Demo</title>
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #282c34; font-family: sans-serif; color: white; }
+        #root { width: 100%; height: 100%; }
+        .html-page-content {
+            background-color: #f0e6d6;
+            color: #333;
+            padding: 20px;
+            overflow-y: auto;
+            font-family: 'Georgia', serif;
+            border: 1px solid #c1b8a8;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        .story-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .chat-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            max-height: 70vh;
+            background: rgba(40, 40, 60, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+        .chat-messages { flex-grow: 1; overflow-y: auto; margin-bottom: 10px; }
+        .chat-messages div { margin-bottom: 8px; }
+        .chat-messages .user { text-align: right; }
+        .chat-messages .ai { text-align: left; }
+        .chat-messages span {
+            padding: 6px 10px;
+            border-radius: 8px;
+            display: inline-block;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .chat-messages .user span { background: #2B6CB0; color: white; }
+        .chat-messages .ai span { background: #4A5568; color: white; }
+        .chat-input form { display: flex; }
+        .chat-input input {
+            flex-grow: 1; padding: 8px; border-radius: 5px 0 0 5px;
+            border: none; background-color: #e2e8f0; color: #2d3748;
+        }
+        .chat-input button {
+            padding: 8px 10px; border-radius: 0 5px 5px 0; border: none;
+            background: #2B6CB0; color: white; cursor: pointer;
+        }
+        .chat-input button:disabled { background: #4A5568; cursor: not-allowed; }
+        .click-prompt {
+            position: absolute; bottom: 10%; left: 50%;
+            transform: translateX(-50%); color: white;
+            cursor: pointer; padding: 10px 15px; background: rgba(0,0,0,0.7);
+            border-radius: 5px; z-index: 10; font-size: 1.2em;
+        }
+        .page-nav button {
+            padding: 5px 10px; margin: 0 5px; cursor: pointer;
+            background-color: #718096; color: white; border: none; border-radius: 3px;
+        }
+        .page-nav button:disabled { background-color: #a0aec0; cursor: not-allowed; }
+        .matter-element {
+            position: absolute; /* Will be controlled by Matter.js */
+            background-color: #e53e3e; /* Red color for visibility */
+            border: 1px solid #c53030;
+            color: white;
+            text-align: center;
+            line-height: 20px; /* Adjust if size changes */
+            font-size: 10px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="module">
+        import React, { useState, useEffect, useRef, Suspense, useMemo } from 'https://esm.sh/react@18.2.0';
+        import ReactDOM from 'https://esm.sh/react-dom@18.2.0/client';
+        import * as THREE from 'https://esm.sh/three@0.158.0';
+        import { Canvas, useFrame, useThree, extend } from 'https://esm.sh/@react-three/fiber@8.15.0';
+        import { OrbitControls, useGLTF, Html, Environment, useAnimations, PresentationControls } from 'https://esm.sh/@react-three/drei@9.88.0';
+        import Matter from 'https://esm.sh/matter-js@0.19.0';
+
+        // --- Constants and Mock AI ---
+        const BOOK_MODEL_URL = 'https://market.pmnd.rs/api/pkg/primary/Suspense-book.glb'; // A simple book model
+
+        const mockAI = {
+            generate: async (prompt) => {
+                await new Promise(res => setTimeout(res, 1000)); // Simulate API call
+                const randomSeed = Math.random().toString(36).substring(7);
+                return {
+                    image: `https://picsum.photos/seed/${randomSeed}/300/400`,
+                    text: `This chapter, inspired by "${prompt.substring(0, 30)}...", tells of brave deeds and mysterious lands. The wind whispered secrets as our hero ventured forth, facing challenges with courage and wit. What wonders or dangers lie ahead?`
+                };
+            }
+        };
+
+        // --- 3D Notebook Component ---
+        function Notebook3D({ isOpen, onClick, onBookReady }) {
+            const group = useRef();
+            const { scene, animations } = useGLTF(BOOK_MODEL_URL);
+            const { actions } = useAnimations(animations, group);
+            const { camera } = useThree();
+
+            const bookScene = useMemo(() => scene.clone(), [scene]);
+
+            useEffect(() => {
+                 if (onBookReady) onBookReady();
+            }, [onBookReady, scene]);
+
+
+            useEffect(() => {
+                // This model doesn't have open/close animations. We'll fake it with camera.
+                // If your model has animations:
+                // const animName = isOpen ? "BookOpen" : "BookClose";
+                // if (actions[animName]) {
+                //     actions[animName].reset().setLoop(THREE.LoopOnce, 1).play();
+                //     actions[animName].clampWhenFinished = true;
+                // }
+            }, [isOpen, actions]);
+
+            useFrame((state, delta) => {
+                if (group.current && !isOpen) {
+                    // Slow rotation when closed is handled by PresentationControls
+                }
+                // Camera positioning is handled by PresentationControls or explicitly in App
+            });
+
+            return (
+                <primitive
+                    ref={group}
+                    object={bookScene}
+                    scale={isOpen ? 1.8 : 1.2} // Adjust scale
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onClick && !isOpen) onClick();
+                    }}
+                    position={[0, -0.2, 0]}
+                />
+            );
+        }
+        useGLTF.preload(BOOK_MODEL_URL);
+
+
+        // --- Matter.js Component for Page Elements ---
+        function MatterPageElement({ engine, text }) {
+            const elementRef = useRef(null);
+            const bodyRef = useRef(null);
+
+            useEffect(() => {
+                if (!engine || !elementRef.current) return;
+
+                const el = elementRef.current;
+                // Create a Matter.js body for this element
+                // Position it relative to the parent HTML overlay (which is the page)
+                // The x,y here are relative to the page's HTML element
+                const body = Matter.Bodies.rectangle(
+                    Math.random() * 150 + 50, // Random initial x
+                    20,  // Initial y (top of page)
+                    text.length * 8 + 10, // Width based on text
+                    20,  // Height
+                    { restitution: 0.3, friction: 0.5 }
+                );
+                bodyRef.current = body;
+                Matter.World.add(engine.world, body);
+
+                return () => {
+                    if (bodyRef.current) {
+                        Matter.World.remove(engine.world, bodyRef.current);
+                    }
+                };
+            }, [engine, text]);
+
+            useFrame(() => {
+                if (bodyRef.current && elementRef.current) {
+                    const pos = bodyRef.current.position;
+                    const angle = bodyRef.current.angle;
+                    elementRef.current.style.transform = `translate(${pos.x - (elementRef.current.offsetWidth / 2)}px, ${pos.y - (elementRef.current.offsetHeight / 2)}px) rotate(${angle}rad)`;
+                }
+            });
+
+            return <div ref={elementRef} className="matter-element">{text}</div>;
+        }
+
+        // --- UI Components ---
+        function StoryPageContent({ imageUrl, text, matterEngine, pageId }) {
+            // Create static ground for Matter.js elements on this page
+            useEffect(() => {
+                if (!matterEngine) return;
+                // Assuming page dimensions are roughly 350x450 for HTML overlay
+                const ground = Matter.Bodies.rectangle(350 / 2, 450 - 10, 350, 20, { isStatic: true, render: { visible: false } });
+                const leftWall = Matter.Bodies.rectangle(5, 450 / 2, 10, 450, { isStatic: true, render: { visible: false } });
+                const rightWall = Matter.Bodies.rectangle(350 - 5, 450 / 2, 10, 450, { isStatic: true, render: { visible: false } });
+
+                Matter.World.add(matterEngine.world, [ground, leftWall, rightWall]);
+                return () => {
+                     Matter.World.remove(matterEngine.world, [ground, leftWall, rightWall]);
+                };
+            }, [matterEngine]);
+
+
+            return (
+                <div className="html-page-content" style={{ width: '350px', height: '450px', position: 'relative' }}>
+                    {imageUrl && <img src={imageUrl} alt="Story illustration" className="story-image" style={{maxHeight: text ? '50%' : '100%'}} />}
+                    {text && <p style={{maxHeight: imageUrl ? '40%' : 'auto', overflowY: 'auto'}}>{text}</p>}
+                    {matterEngine && imageUrl && ( // Only add matter element if image exists (less clutter)
+                        <MatterPageElement engine={matterEngine} text={`Item ${pageId}`} />
+                    )}
+                </div>
+            );
+        }
+
+        function ChatPanel({ onSendMessage, isLoading, initialMessage }) {
+            const [input, setInput] = useState('');
+            const [messages, setMessages] = useState([{ sender: 'ai', text: initialMessage }]);
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }
+            useEffect(scrollToBottom, [messages]);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                if (!input.trim() || isLoading) return;
+                const userMessage = input;
+                setMessages(prev => [...prev, { sender: 'user', text: userMessage }]);
+                setInput('');
+                const aiResponse = await onSendMessage(userMessage); // onSendMessage is now async
+                if (aiResponse) {
+                     setMessages(prev => [...prev, { sender: 'ai', text: aiResponse.text }]);
+                }
+            };
+
+            return (
+                <div className="chat-panel">
+                    <div className="chat-messages">
+                        {messages.map((msg, index) => (
+                            <div key={index} className={msg.sender}>
+                                <span>{msg.text}</span>
+                            </div>
+                        ))}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    <div className="chat-input">
+                        <form onSubmit={handleSubmit}>
+                            <input
+                                type="text" value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder={isLoading ? "Weaving..." : "Tell your story..."}
+                                disabled={isLoading}
+                            />
+                            <button type="submit" disabled={isLoading}>Send</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App Component ---
+        function App() {
+            const [isBookOpen, setIsBookOpen] = useState(false);
+            const [isBookReady, setIsBookReady] = useState(false);
+            const [story, setStory] = useState({ pages: [] }); // [{image, text, id}]
+            const [currentPageIndex, setCurrentPageIndex] = useState(0);
+            const [isLoading, setIsLoading] = useState(false);
+            const controlsRef = useRef();
+            const { camera } = useThree(); // For manual camera control if needed
+
+            // Matter.js engine setup
+            const matterEngineRef = useRef(null);
+            useEffect(() => {
+                matterEngineRef.current = Matter.Engine.create({ gravity: { y: 0.5 } }); // Weaker gravity
+                const runner = Matter.Runner.create();
+                Matter.Runner.run(runner, matterEngineRef.current);
+                return () => {
+                    Matter.Runner.stop(runner);
+                    Matter.Engine.clear(matterEngineRef.current);
+                };
+            }, []);
+
+
+            const handleNotebookClick = () => {
+                if (!isBookOpen && isBookReady) {
+                    setIsBookOpen(true);
+                    // Zoom animation could be done with GSAP or lerping camera in useFrame
+                    // For PresentationControls, it handles zoom on focus.
+                    // We might need to manually set camera for precise control
+                    if (controlsRef.current) {
+                        // controlsRef.current.polar = [Math.PI / 3, Math.PI / 3]; // example
+                        // controlsRef.current.azimuth = [-Math.PI / 4, Math.PI / 4]; // example
+                        // controlsRef.current.config = { mass: 2, tension: 500 }; // example
+                        // controlsRef.current. μουσική(0,0,0) // focus on specific target
+                    }
+                }
+            };
+
+            const handleNewPageGeneration = async (userInput) => {
+                setIsLoading(true);
+                try {
+                    const { image, text } = await mockAI.generate(userInput);
+                    const newPage = { image, text, id: story.pages.length + 1 };
+                    setStory(prev => ({ ...prev, pages: [...prev.pages, newPage] }));
+                    setCurrentPageIndex(story.pages.length); // Go to the new page
+                    setIsLoading(false);
+                    return {text: "A new page has been woven!"}; // Message for chat
+                } catch (error) {
+                    console.error("Failed to generate story page:", error);
+                    setIsLoading(false);
+                    return {text: "Oh dear, my quill seems to be stuck."}; // Error message for chat
+                }
+            };
+
+            const goToNextPage = () => {
+                if (currentPageIndex < story.pages.length - 1) {
+                    setCurrentPageIndex(currentPageIndex + 1);
+                }
+            };
+            const goToPrevPage = () => {
+                if (currentPageIndex > 0) {
+                    setCurrentPageIndex(currentPageIndex - 1);
+                }
+            };
+
+            const activePage = story.pages[currentPageIndex];
+
+            useEffect(() => {
+                // Adjust camera for open book view
+                if (isBookOpen) {
+                    // This needs fine-tuning based on your book's size and desired view
+                    camera.position.set(0, 0.5, 3.5); // Example open position
+                    camera.lookAt(0, 0, 0);
+                } else if (isBookReady) {
+                    camera.position.set(0, 1, 5); // Example closed position
+                    camera.lookAt(0, 0, 0);
+                }
+            }, [isBookOpen, isBookReady, camera]);
+
+
+            return (
+                <>
+                    <Suspense fallback={<Html center><p>Loading Book...</p></Html>}>
+                        <Environment preset="sunset" />
+                        <ambientLight intensity={0.8} />
+                        <directionalLight position={[10, 10, 5]} intensity={1.5} />
+
+                        <PresentationControls
+                            ref={controlsRef}
+                            global
+                            cursor={!isBookOpen}
+                            snap={isBookOpen ? { mass: 4, tension: 1500 } : { mass:2, tension: 500}}
+                            zoom={isBookOpen ? 1 : 0.8}
+                            rotation={[0.1, -Math.PI / 12, 0]} // Initial rotation slightly askew
+                            polar={isBookOpen ? [0, Math.PI / 2.5] : [Math.PI / 3, 2*Math.PI / 3]}
+                            azimuth={isBookOpen ? [-Math.PI / 20, Math.PI / 20] : [-Math.PI / 4, Math.PI / 4]}
+                        >
+                            <Notebook3D isOpen={isBookOpen} onClick={handleNotebookClick} onBookReady={() => setIsBookReady(true)} />
+                        </PresentationControls>
+
+                        {isBookOpen && activePage && (
+                            <>
+                                {/* Left Page */}
+                                <Html
+                                    position={[-1.15, 0.05, 0.12]} // Adjust to fit your model's page
+                                    rotation={[0,0.0,0]} // Adjust if pages are angled
+                                    transform occlude distanceFactor={2.0} // Adjust distanceFactor
+                                    style={{pointerEvents: 'none'}} // Allow clicks to pass through to controls if needed
+                                >
+                                    <StoryPageContent imageUrl={activePage.image} text={null} />
+                                </Html>
+                                {/* Right Page */}
+                                <Html
+                                    position={[1.15, 0.05, 0.12]} // Adjust to fit your model's page
+                                    rotation={[0,0.0,0]}
+                                    transform occlude distanceFactor={2.0}
+                                    style={{pointerEvents: 'auto'}} // Enable interaction for Matter.js
+                                >
+                                    <StoryPageContent
+                                        text={activePage.text}
+                                        matterEngine={matterEngineRef.current}
+                                        pageId={activePage.id}
+                                    />
+                                </Html>
+                            </>
+                        )}
+                    </Suspense>
+
+                    {!isBookOpen && isBookReady && (
+                        <Html center>
+                            <div className="click-prompt" onClick={handleNotebookClick}>
+                                [ Click to Open Your Story ]
+                            </div>
+                        </Html>
+                    )}
+
+                    {isBookOpen && (
+                        <>
+                            <ChatPanel
+                                onSendMessage={handleNewPageGeneration}
+                                isLoading={isLoading}
+                                initialMessage={story.pages.length === 0 ? "The book is open! What story shall we begin?" : "What happens next in our tale?"}
+                            />
+                            {story.pages.length > 0 && (
+                                 <Html
+                                    position={[0, -1.5, 0]} // Position page navigation below the book
+                                    center
+                                >
+                                    <div className="page-nav" style={{ background: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '5px'}}>
+                                        <button onClick={goToPrevPage} disabled={currentPageIndex === 0}>‹ Prev</button>
+                                        <span>Page {currentPageIndex + 1} of {story.pages.length}</span>
+                                        <button onClick={goToNextPage} disabled={currentPageIndex >= story.pages.length - 1}>Next ›</button>
+                                    </div>
+                                </Html>
+                            )}
+                        </>
+                    )}
+                </>
+            );
+        }
+
+        // --- Render App ---
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(
+            <Canvas camera={{ position: [0, 1, 5], fov: 50 }}>
+                <App />
+            </Canvas>
+        );
+
+    </script>
+</body>
+</html>
