@@ -1,0 +1,14 @@
+{
+  "extends": "@store-e-tail/typescript-config/react-library.json",
+  "compilerOptions": {
+    // "outDir": "dist"
+    "baseUrl": ".",
+    "paths": {
+      "@store-e-tail/ui/*": ["./src/*"],
+      "@store-e-tail/ui/components/ColorfulBackground": ["./src/components/ColorfulBackground.tsx"],
+      "@store-e-tail/ui/components/ui*": ["./src/components/ui/*"],      "@store-e-tail/ui/lib/utils/ui*": ["./src/lib/utils/*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"]
+}
